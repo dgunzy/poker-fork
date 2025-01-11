@@ -37,43 +37,102 @@ func Compare27(hand1, hand2 *[5]Card) int {
 // It's slow, but a little bit optimized so that the table construction
 // is relatively fast.
 func evalSlow27(c []Card, replace, text bool) (eval, error) {
-	if len(c) == 7 {
-		return evalSlow7(c, replace, text)
+	fmt.Printf("Evaluating hand: %v\n", Hand(c).String())
+	if len(c) != 5 {
+		return eval{}, fmt.Errorf("evalSlow27: need 5 cards, got %d", len(c))
 	}
+
+	// Initial setup for hand evaluation
 	flush := isFlush(c)
 	ranks := [13]int{}
 	dupes := [6]int{}  // uniqs, pairs, trips, quads, quins
 	str8s := [13]int{} // finds straights
 	str8top := 0       // set to the top card of the straight, if any
 	var rankBits [6]uint16
+
+	// First pass - check for straights
 	for _, ci := range c {
 		cr := (int(ci>>2) & 15) + 1
+		if cr == 1 { // If it's an Ace
+			cr = 14 // Treat it as higher than King
+		}
+
+		// We keep the original ranking logic for straight detection
 		rawr := (cr + 11) % 13
 		rankBits[ranks[rawr]] |= 1 << rawr
 		ranks[rawr]++
 		dupes[ranks[rawr]]++
 		dupes[ranks[rawr]-1]--
+
+		// Straight detection logic
 		for i := 0; i < 5; i++ {
-			idx := (cr + i) % 13
+			var idx int
+			if cr != 14 {
+				idx = ((cr - 1) + i) % 13
+			} else {
+				idx = (13 + i) % 13
+			}
 			str8s[idx] |= 1 << uint(i)
-			// Make sure to exclude wrap-around straights headed by 2, 3, 4.
-			if str8s[idx] == 31 && (idx <= 1 || idx >= 5) {
+
+			if str8s[idx] == 31 && idx >= 5 {
 				str8top = (idx+12)%13 + 1
 			}
 		}
 	}
+
+	// Second pass - reset and properly evaluate hand strength
+	for _, ci := range c {
+		cr := (int(ci>>2) & 15) + 1
+		if cr == 1 { // Found an Ace
+			// Clear all tracking arrays for fresh evaluation
+			ranks = [13]int{}
+			dupes = [6]int{}
+			rankBits = [6]uint16{}
+
+			// Reprocess all cards with corrected ranking
+			for j := 0; j < len(c); j++ {
+				cr := (int(c[j]>>2) & 15) + 1
+				if cr == 1 {
+					// Ace becomes highest rank (12)
+					rawr := 12
+					rankBits[ranks[rawr]] |= 1 << rawr
+					ranks[rawr]++
+					dupes[ranks[rawr]]++
+					dupes[ranks[rawr]-1]--
+				} else {
+					// Other cards use positions 1-11
+					// This is the key change - we use (cr - 1) instead of (cr + 11) % 13
+					// This ensures no bits are set at position 0
+					rawr := (cr - 1)
+					rankBits[ranks[rawr]] |= 1 << rawr
+					ranks[rawr]++
+					dupes[ranks[rawr]]++
+					dupes[ranks[rawr]-1]--
+				}
+			}
+			break // Only need to do this once if we find an Ace
+		}
+	}
+	fmt.Printf("After ace reset: rankBits[0]: %016b\n", rankBits[0])
+	fmt.Printf("After ace reset: ranks: %v\n", ranks)
+	fmt.Printf("After ace reset: dupes: %v\n", dupes)
+	fmt.Printf("flush: %v, str8top: %v, dupes[1]: %v\n", flush, str8top, dupes[1])
 	rankBits[0] &^= rankBits[1]
 	rankBits[1] &^= rankBits[2]
 	rankBits[2] &^= rankBits[3]
 	rankBits[3] &^= rankBits[4]
 	rankBits[4] &^= rankBits[5]
+	fmt.Printf("After masking: rankBits[0]: %016b\n", rankBits[0])
 	if !flush && str8top == 0 && dupes[1] == len(c) { // No pair
+
 		var a, b, c, d, e int
+		fmt.Printf("Before popping: rankBits[0]: %016b\n", rankBits[0])
 		a, rankBits[0] = poptop(rankBits[0])
 		b, rankBits[0] = poptop(rankBits[0])
 		c, rankBits[0] = poptop(rankBits[0])
 		d, rankBits[0] = poptop(rankBits[0])
 		e, rankBits[0] = poptop(rankBits[0])
+
 		if text {
 			return evalScore("%s-%s-%s-%s-%s", 0, a, b, c, d, e), nil
 		}

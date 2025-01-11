@@ -77,6 +77,62 @@ func TestEval27(t *testing.T) {
 			hand2:       "DK H3 C4 S5 CA", // Not a straight - but Ace king is worse than ace high
 			want1Better: true,
 		},
+		// NEw tests
+
+		{
+			name:        "Pair of Aces vs Ace high",
+			hand1:       "HA CA D3 C4 H5", // Pair of Aces (very bad)
+			hand2:       "HA D3 C4 H5 S7", // Just Ace high
+			want1Better: false,
+		},
+		{
+			name:        "Pair of Aces vs smaller pair",
+			hand1:       "HA CA D3 C4 H5", // Pair of Aces (worst pair possible)
+			hand2:       "H2 C2 D3 C4 H5", // Pair of deuces
+			want1Better: false,
+		},
+
+		// Testing flushes - any flush should be worse than a non-flush
+		{
+			name:        "Flush vs high card",
+			hand1:       "H2 H3 H4 H5 H7", // Flush (bad)
+			hand2:       "D2 C3 H4 S5 HA", // Ace high (better than flush)
+			want1Better: false,
+		},
+		{
+			name:        "Better flush vs worse flush",
+			hand1:       "H2 H3 H4 H5 H7", // Lower flush
+			hand2:       "H3 H4 H5 H7 HK", // Higher flush
+			want1Better: true,
+		},
+
+		// Testing wheel combinations
+		{
+			name:        "Wheel flush vs regular flush",
+			hand1:       "H2 H3 H4 H5 HA", // Wheel flush
+			hand2:       "H3 H4 H5 H7 H8", // Regular flush
+			want1Better: false,            // Want regular flush to be a lower score then wheel flush
+		},
+		{
+			name:        "Wheel flush vs wheel",
+			hand1:       "H2 H3 H4 H5 HA", // Wheel flush
+			hand2:       "D2 H3 C4 S5 HA", // Regular wheel
+			want1Better: false,            // Flush is worse
+		},
+
+		// Testing more complex combinations
+		{
+			name:        "Flush vs pair of Aces",
+			hand1:       "H2 H3 H4 H5 H7", // Flush
+			hand2:       "HA CA D3 C4 H5", // Pair of Aces
+			want1Better: false,
+		},
+		{
+			name:        "Three Aces vs flush",
+			hand1:       "HA CA DA H2 H3", // Three Aces
+			hand2:       "H2 H3 H4 H5 H7", // Flush
+			want1Better: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
