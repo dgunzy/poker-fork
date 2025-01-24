@@ -1,11 +1,20 @@
 package poker
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // Eval27 evaluates a 5-card poker hand for 2-7 lowball rules.
 // Higher scores indicate worse hands in 2-7.
 // Eval27 evaluates a 5-card poker hand for 2-7 lowball rules
 func Eval27(hand *[5]Card) int16 {
+	// Try to use the lookup table first
+	if deuce7RootTable != nil {
+		return Eval27Fast(hand)
+	}
+
+	// Fall back to slow evaluation if table isn't initialized
 	ev, err := evalSlow27(hand[:], true, false)
 	if err != nil {
 		return 0 // Or some error value
@@ -25,6 +34,26 @@ func Compare27(hand1, hand2 *[5]Card) int {
 	return int(score1) - int(score2)
 }
 
+// sortCards sorts cards in descending order by rank for 2-7 evaluation
+func SortCards(cards []Card) {
+	sort.Slice(cards, func(i, j int) bool {
+		// Get ranks, treating ace as highest
+		ri := (int(cards[i]>>2) & 15) + 1
+		rj := (int(cards[j]>>2) & 15) + 1
+		if ri == 1 {
+			ri = 14 // Ace high
+		}
+		if rj == 1 {
+			rj = 14 // Ace high
+		}
+		if ri != rj {
+			return ri > rj // Higher ranks first
+		}
+		// If ranks equal, sort by suit for consistency
+		return cards[i]&3 > cards[j]&3
+	})
+}
+
 // evalSlow evaluates a 3- or 5- card poker hand.
 // The result is a number which can be compared
 // with other hand's evaluations to correctly rank them as poker
@@ -36,8 +65,10 @@ func Compare27(hand1, hand2 *[5]Card) int {
 // This function is used to build tables for fast hand evaluation.
 // It's slow, but a little bit optimized so that the table construction
 // is relatively fast.
+
 func evalSlow27(c []Card, replace, text bool) (eval, error) {
-	fmt.Printf("Evaluating hand: %v\n", Hand(c).String())
+
+	// fmt.Printf("Evaluating hand: %v\n", Hand(c).String())
 	if len(c) != 5 {
 		return eval{}, fmt.Errorf("evalSlow27: need 5 cards, got %d", len(c))
 	}
@@ -113,20 +144,20 @@ func evalSlow27(c []Card, replace, text bool) (eval, error) {
 			break // Only need to do this once if we find an Ace
 		}
 	}
-	fmt.Printf("After ace reset: rankBits[0]: %016b\n", rankBits[0])
-	fmt.Printf("After ace reset: ranks: %v\n", ranks)
-	fmt.Printf("After ace reset: dupes: %v\n", dupes)
-	fmt.Printf("flush: %v, str8top: %v, dupes[1]: %v\n", flush, str8top, dupes[1])
+	// fmt.Printf("After ace reset: rankBits[0]: %016b\n", rankBits[0])
+	// fmt.Printf("After ace reset: ranks: %v\n", ranks)
+	// fmt.Printf("After ace reset: dupes: %v\n", dupes)
+	// fmt.Printf("flush: %v, str8top: %v, dupes[1]: %v\n", flush, str8top, dupes[1])
 	rankBits[0] &^= rankBits[1]
 	rankBits[1] &^= rankBits[2]
 	rankBits[2] &^= rankBits[3]
 	rankBits[3] &^= rankBits[4]
 	rankBits[4] &^= rankBits[5]
-	fmt.Printf("After masking: rankBits[0]: %016b\n", rankBits[0])
+	// fmt.Printf("After masking: rankBits[0]: %016b\n", rankBits[0])
 	if !flush && str8top == 0 && dupes[1] == len(c) { // No pair
 
 		var a, b, c, d, e int
-		fmt.Printf("Before popping: rankBits[0]: %016b\n", rankBits[0])
+		// fmt.Printf("Before popping: rankBits[0]: %016b\n", rankBits[0])
 		a, rankBits[0] = poptop(rankBits[0])
 		b, rankBits[0] = poptop(rankBits[0])
 		c, rankBits[0] = poptop(rankBits[0])

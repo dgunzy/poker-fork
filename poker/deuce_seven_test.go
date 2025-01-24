@@ -1,7 +1,6 @@
 package poker
 
 import (
-	"sort"
 	"strings"
 	"testing"
 )
@@ -18,26 +17,6 @@ func parseHandForTest(t *testing.T, s string) []Card {
 		}
 	}
 	return r
-}
-
-// sortCards sorts cards in descending order by rank for 2-7 evaluation
-func sortCards(cards []Card) {
-	sort.Slice(cards, func(i, j int) bool {
-		// Get ranks, treating ace as highest
-		ri := (int(cards[i]>>2) & 15) + 1
-		rj := (int(cards[j]>>2) & 15) + 1
-		if ri == 1 {
-			ri = 14 // Ace high
-		}
-		if rj == 1 {
-			rj = 14 // Ace high
-		}
-		if ri != rj {
-			return ri > rj // Higher ranks first
-		}
-		// If ranks equal, sort by suit for consistency
-		return cards[i]&3 > cards[j]&3
-	})
 }
 
 func TestEval27(t *testing.T) {
@@ -133,6 +112,18 @@ func TestEval27(t *testing.T) {
 			hand2:       "H2 H3 H4 H5 H7", // Flush
 			want1Better: true,
 		},
+		{
+			name:        "Not a real straight flush hand one should be worse",
+			hand1:       "CA CQ CJ CT C9", // Not a real straight flush
+			hand2:       "D2 H3 C4 S5 H7", // Perfect 2-7 hand
+			want1Better: false,            // Flush should be worse than perfect 2-7
+		},
+		{
+			name:        "Not a real straight flush, we can eval vs a real straight flush",
+			hand1:       "CA CQ CJ CT C9", // Royal flush
+			hand2:       "H2 H3 H4 H5 H6", // Ace high
+			want1Better: false,            // Royal flush should be worse than Ace high
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,8 +131,8 @@ func TestEval27(t *testing.T) {
 			hand2 := parseHandForTest(t, tt.hand2)
 
 			// Sort both hands before evaluation
-			sortCards(hand1)
-			sortCards(hand2)
+			SortCards(hand1)
+			SortCards(hand2)
 
 			var h1, h2 [5]Card
 			copy(h1[:], hand1)
